@@ -1,0 +1,44 @@
+.appArea {
+    padding: 0 32px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+
+    .userInfo {
+        display: flex;
+        justify-content: center;
+    }
+
+    .loginBtn {
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .nickname {
+        margin-left: 4px;
+    }
+}
+
+.operteDel {
+    color: $primary-color;
+    cursor: pointer;
+
+    &:hover {
+        color: $primary-light;
+    }
+}
+
+.operateGroup {
+    :global {
+        .ant-btn {
+            &+.ant-btn {
+                margin-left: 8px;
+            }
+        }
+    }
+}
+

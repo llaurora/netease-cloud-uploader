@@ -1,0 +1,11 @@
+.uploadDrawer {
+    :global {
+        .ant-upload.ant-upload-drag {
+            height: auto;
+
+            p.ant-upload-drag-icon {
+                margin-bottom: 8px;
+            }
+        }
+    }
+}
