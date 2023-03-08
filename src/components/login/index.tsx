@@ -57,6 +57,7 @@ const Login = ({ open, onCancel, afterLoginSuccess }: LoginProps) => {
                 if (statusResponse.code === EXPIRE_CODE) {
                     setExpire(true);
                     clearInterval(qrCodeExpireTimerRef.current);
+                    return;
                 }
                 if (statusResponse.code === QRCODE_SUCCESS) {
                     clearInterval(qrCodeExpireTimerRef.current);
@@ -196,6 +197,9 @@ const Login = ({ open, onCancel, afterLoginSuccess }: LoginProps) => {
                         <span
                             className={styles.method}
                             onClick={() => {
+                                if (qrCodeExpireTimerRef.current) {
+                                    clearInterval(qrCodeExpireTimerRef.current);
+                                }
                                 setLoginMethod(LoginMethodEnum.CELLPHONE);
                             }}
                         >

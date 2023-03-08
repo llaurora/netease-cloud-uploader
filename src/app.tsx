@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from "react";
 import produce, { Draft } from "immer";
-import { uniqBy } from "ramda";
+import { uniqBy, isNil } from "ramda";
 import { ConfigProvider, Avatar, Button, Dropdown, Menu, Table, message, Modal } from "antd";
 import dayjs from "dayjs";
 import { UploadOutlined, LogoutOutlined, DeleteOutlined } from "@ant-design/icons";
@@ -9,6 +9,7 @@ import request from "@/request";
 import Login, { UserData } from "@/components/login";
 import UploadMusic from "@/components/upload";
 import zhCN from "antd/es/locale/zh_CN";
+import { setLocalStorage, removeLocalStorage, getLocalStorage, aesDecrypt, aesEncrypt } from "@/utils";
 import styles from "./app.scss";
 
 interface CloudMusic {
@@ -31,7 +32,8 @@ interface MusicDataState {
     total: number;
 }
 
-const rowKey = "songId";
+const ROW_KEY = "songId";
+const USER_DATA = "netease_cloud_uploader_userData";
 const initUserData = {
     nickname: undefined,
     avatarUrl: undefined,
@@ -97,6 +99,34 @@ const App = () => {
         }
     }, [cookie, pagination]);
 
+    const getLoginedStatus = useCallback(async () => {
+        const storageUserData = getLocalStorage(USER_DATA);
+        const {
+            cookie: storageCookie,
+            nickname: storageNickname,
+            avatarUrl: storageAvatarUrl,
+        } = aesDecrypt(storageUserData) || {};
+        if (isNil(storageCookie)) {
+            return;
+        }
+        const loginedStatus = await request(`/login/status?timerstamp=${dayjs().valueOf()}`, {
+            getResponse: true,
+            data: {
+                cookie: storageCookie,
+            },
+        });
+        // 如果登录未过期
+        if (isNil(loginedStatus?.data?.profile?.nickname)) {
+            removeLocalStorage(USER_DATA);
+            return;
+        }
+        setUserData({
+            cookie: storageCookie,
+            nickname: storageNickname,
+            avatarUrl: storageAvatarUrl,
+        });
+    }, []);
+
     const onCloseLogin = useCallback(() => {
         setLoginOpen(false);
     }, []);
@@ -110,6 +140,7 @@ const App = () => {
     }, []);
 
     const afterLoginSuccess = useCallback((data: UserData) => {
+        setLocalStorage(USER_DATA, aesEncrypt(data));
         setUserData(data);
     }, []);
 
@@ -139,20 +170,20 @@ const App = () => {
             content: `确定要删除这${length}首音乐吗？`,
             okText: "确定",
             cancelText: "取消",
-            onOk: () => onDeleteCloudMusic(selectedRows.map((item: CloudMusic) => item[rowKey]).join(",")),
+            onOk: () => onDeleteCloudMusic(selectedRows.map((item: CloudMusic) => item[ROW_KEY]).join(",")),
         });
     };
 
     const onSelectChange = (record: CloudMusic, selected: boolean) => {
         if (selected) {
             setSelectedRows((prevRows: CloudMusic[]) =>
-                uniqBy((item) => item?.[rowKey], [...(prevRows || []), record]),
+                uniqBy((item) => item?.[ROW_KEY], [...(prevRows || []), record]),
             );
             return;
         }
         setSelectedRows(
             produce((draft) => {
-                const index = draft.findIndex((item) => item[rowKey] === record[rowKey]);
+                const index = draft.findIndex((item) => item[ROW_KEY] === record[ROW_KEY]);
                 draft.splice(index, 1);
             }),
         );
@@ -161,7 +192,7 @@ const App = () => {
     const onSelectAllChange = (selected: boolean) => {
         if (selected) {
             setSelectedRows((prevRows: CloudMusic[]) =>
-                uniqBy((item) => item?.[rowKey], [...(prevRows || []), ...dataSource]),
+                uniqBy((item) => item?.[ROW_KEY], [...(prevRows || []), ...dataSource]),
             );
             return;
         }
@@ -170,6 +201,7 @@ const App = () => {
 
     const userLogout = async () => {
         await request("/logout", { data: { cookie } });
+        removeLocalStorage(USER_DATA);
         setUserData(initUserData);
         setPagination(initPagination);
         setMusicData(initMusicData);
@@ -188,6 +220,10 @@ const App = () => {
             ]}
         />
     );
+
+    useEffect(() => {
+        getLoginedStatus();
+    }, [getLoginedStatus]);
 
     useEffect(() => {
         if (logined) {
@@ -226,7 +262,7 @@ const App = () => {
                 <span
                     className={styles.operteDel}
                     onClick={() => {
-                        onDeleteCloudMusic(record[rowKey]);
+                        onDeleteCloudMusic(record[ROW_KEY]);
                     }}
                 >
                     删除
@@ -278,7 +314,7 @@ const App = () => {
                 </div>
                 <Table
                     size="middle"
-                    rowKey={rowKey}
+                    rowKey={ROW_KEY}
                     columns={columns}
                     dataSource={dataSource}
                     loading={musicLoading}
@@ -293,7 +329,7 @@ const App = () => {
                         showTotal: () => `共${total}首`,
                     }}
                     rowSelection={{
-                        selectedRowKeys: selectedRows.map((item: CloudMusic) => item[rowKey]),
+                        selectedRowKeys: selectedRows.map((item: CloudMusic) => item[ROW_KEY]),
                         onSelect: onSelectChange,
                         onSelectAll: onSelectAllChange,
                     }}
