@@ -19,6 +19,7 @@ export interface UserData {
     nickname: string;
     avatarUrl: string;
     cookie: string;
+    userId: string | number;
 }
 
 export interface LoginProps extends ModalProps {
@@ -71,6 +72,7 @@ const Login = ({ open, onCancel, afterLoginSuccess }: LoginProps) => {
                     onCancel();
                     afterLoginSuccess({
                         cookie,
+                        userId: userResponse?.data?.profile?.userId,
                         nickname: userResponse?.data?.profile?.nickname,
                         avatarUrl: userResponse?.data?.profile?.avatarUrl,
                     });
@@ -102,6 +104,7 @@ const Login = ({ open, onCancel, afterLoginSuccess }: LoginProps) => {
                 setLoading(false);
                 onCancel();
                 afterLoginSuccess({
+                    userId: response?.profile?.userId,
                     nickname: response?.profile?.nickname,
                     avatarUrl: response?.profile?.avatarUrl,
                     cookie: response?.cookie,

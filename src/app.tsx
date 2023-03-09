@@ -13,7 +13,7 @@ import { setLocalStorage, removeLocalStorage, getLocalStorage, aesDecrypt, aesEn
 import styles from "./app.scss";
 
 interface CloudMusic {
-    songId: number;
+    songId: number | string;
     songName: string;
     artist: string;
     album: string;
@@ -33,8 +33,9 @@ interface MusicDataState {
 }
 
 const ROW_KEY = "songId";
-const USER_DATA = "netease_cloud_uploader_userData";
+const USER_COOKIE = "netease_cloud_uploader_user_cookie";
 const initUserData = {
+    userId: undefined,
     nickname: undefined,
     avatarUrl: undefined,
     cookie: undefined,
@@ -56,9 +57,9 @@ const App = () => {
     const [musicData, setMusicData] = useState<MusicDataState>(initMusicData);
     const [selectedRows, setSelectedRows] = useState<CloudMusic[]>([]);
     const [pagination, setPagination] = useState<Pagination>(initPagination);
-    const { nickname, avatarUrl, cookie } = userData;
+    const { nickname, avatarUrl, cookie, userId } = userData;
     const { dataSource, total, loading: musicLoading } = musicData;
-    const logined = cookie !== undefined;
+    const logined = cookie !== undefined && userId !== undefined;
 
     const getCloudMusicList = useCallback(async () => {
         try {
@@ -100,31 +101,32 @@ const App = () => {
     }, [cookie, pagination]);
 
     const getLoginedStatus = useCallback(async () => {
-        const storageUserData = getLocalStorage(USER_DATA);
-        const {
-            cookie: storageCookie,
-            nickname: storageNickname,
-            avatarUrl: storageAvatarUrl,
-        } = aesDecrypt(storageUserData) || {};
-        if (isNil(storageCookie)) {
-            return;
-        }
-        const loginedStatus = await request(`/login/status?timerstamp=${dayjs().valueOf()}`, {
-            getResponse: true,
-            data: {
+        try {
+            const storageCookie = aesDecrypt(getLocalStorage(USER_COOKIE));
+            if (isNil(storageCookie)) {
+                return;
+            }
+            const userResponse = await request(`/login/status?timerstamp=${dayjs().valueOf()}`, {
+                getResponse: true,
+                data: {
+                    cookie: storageCookie,
+                },
+            });
+            const newUserData = {
                 cookie: storageCookie,
-            },
-        });
-        // 如果登录未过期
-        if (isNil(loginedStatus?.data?.profile?.nickname)) {
-            removeLocalStorage(USER_DATA);
-            return;
+                userId: userResponse?.data?.profile?.userId,
+                nickname: userResponse?.data?.profile?.nickname,
+                avatarUrl: userResponse?.data?.profile?.avatarUrl,
+            };
+            // 如果登录过期
+            if (isNil(newUserData.userId) || isNil(newUserData.cookie)) {
+                throw new Error("登录已过期，请重新登录");
+            }
+            setUserData(newUserData);
+        } catch (error) {
+            message.error(error?.message || "登录已过期，请重新登录");
+            removeLocalStorage(USER_COOKIE);
         }
-        setUserData({
-            cookie: storageCookie,
-            nickname: storageNickname,
-            avatarUrl: storageAvatarUrl,
-        });
     }, []);
 
     const onCloseLogin = useCallback(() => {
@@ -140,7 +142,7 @@ const App = () => {
     }, []);
 
     const afterLoginSuccess = useCallback((data: UserData) => {
-        setLocalStorage(USER_DATA, aesEncrypt(data));
+        setLocalStorage(USER_COOKIE, aesEncrypt(data.cookie));
         setUserData(data);
     }, []);
 
@@ -201,7 +203,7 @@ const App = () => {
 
     const userLogout = async () => {
         await request("/logout", { data: { cookie } });
-        removeLocalStorage(USER_DATA);
+        removeLocalStorage(USER_COOKIE);
         setUserData(initUserData);
         setPagination(initPagination);
         setMusicData(initMusicData);
@@ -260,7 +262,7 @@ const App = () => {
             fixed: "right",
             render: (_, record: CloudMusic) => (
                 <span
-                    className={styles.operteDel}
+                    className={styles.operate}
                     onClick={() => {
                         onDeleteCloudMusic(record[ROW_KEY]);
                     }}
