@@ -3,7 +3,7 @@ import produce, { Draft } from "immer";
 import { uniqBy, isNil } from "ramda";
 import { ConfigProvider, Avatar, Button, Dropdown, Menu, Table, message, Modal } from "antd";
 import dayjs from "dayjs";
-import { UploadOutlined, LogoutOutlined, DeleteOutlined } from "@ant-design/icons";
+import { UploadOutlined, LogoutOutlined, DeleteOutlined, Loading3QuartersOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import request from "@/request";
 import Login, { UserData } from "@/components/login";
@@ -299,6 +299,14 @@ const App = () => {
                         <div className={styles.operateGroup}>
                             <Button type="primary" icon={<DeleteOutlined />} onClick={onBatchDeleteCloudMusic}>
                                 批量删除
+                            </Button>
+                            <Button
+                                type="default"
+                                loading={musicLoading}
+                                icon={<Loading3QuartersOutlined />}
+                                onClick={getCloudMusicList}
+                            >
+                                刷新
                             </Button>
                             <Button
                                 type="default"
